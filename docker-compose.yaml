@@ -1,0 +1,32 @@
+services:
+  activemq:
+    image: apache/activemq-classic:5.18.7
+    ports:
+      - "61616:61616"
+      - "8161:8161"
+
+  central-service:
+    build:
+      context: .
+      dockerfile: central-service/Dockerfile
+    environment:
+      - BROKER_URL=tcp://activemq:61616
+      - DESTINATION_NAME=measurements.queue
+    depends_on:
+      - activemq
+
+  warehouse-service:
+    build:
+      context: .
+      dockerfile: warehouse-service/Dockerfile
+    environment:
+      - BROKER_URL=tcp://activemq:61616
+      - DESTINATION_NAME=measurements.queue
+      - WAREHOUSE_ID=WH-1
+      - UDP_TEMPERATURE_PORT=3344
+      - UDP_HUMIDITY_PORT=3355
+    ports:
+      - "3344:3344/udp"
+      - "3355:3355/udp"
+    depends_on:
+      - activemq
