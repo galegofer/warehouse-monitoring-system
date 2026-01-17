@@ -62,10 +62,10 @@ public class ThresholdProvider {
     }
 
     private static String readRaw(final String propertyName, final String envName) {
-        var raw = System.getProperty(propertyName);
-        if (StringUtils.isBlank(raw)) {
-            raw = System.getenv(envName);
-        }
-        return raw;
+        final var raw = System.getProperty(propertyName);
+
+        return StringUtils.isBlank(raw)
+                ? System.getenv(envName)
+                : raw;
     }
 }

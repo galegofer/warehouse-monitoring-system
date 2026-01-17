@@ -18,14 +18,14 @@ public class WarehouseApplication {
     private static final Logger logger = LoggerFactory.getLogger(WarehouseApplication.class);
 
     public static void main(String[] args) {
-        final var config = WarehouseConfig.load();
+        final var warehouseConfig = WarehouseConfig.load();
 
         final var mapper = new MeasurementJsonMapper();
-        final var publisher = new JmsMeasurementPublisher(config.brokerUrl(), config.destinationName(), mapper);
+        final var publisher = new JmsMeasurementPublisher(warehouseConfig.brokerUrl(), warehouseConfig.destinationName(), mapper);
 
-        final var parser = new MeasurementParser(config.warehouseId());
-        final var tempListener = new UdpMeasurementListener(config.temperaturePort(), parser, SensorType.TEMPERATURE, publisher);
-        final var humListener = new UdpMeasurementListener(config.humidityPort(), parser, SensorType.HUMIDITY, publisher);
+        final var parser = new MeasurementParser(warehouseConfig.warehouseId());
+        final var tempListener = new UdpMeasurementListener(warehouseConfig.temperaturePort(), parser, SensorType.TEMPERATURE, publisher);
+        final var humListener = new UdpMeasurementListener(warehouseConfig.humidityPort(), parser, SensorType.HUMIDITY, publisher);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("Shutting down warehouse-service");
@@ -41,7 +41,7 @@ public class WarehouseApplication {
         }));
 
         logger.info("warehouse-service started. temperatureUdpPort={} humidityUdpPort={} warehouseId={} brokerUrl={} destination={}",
-                config.temperaturePort(), config.humidityPort(), config.warehouseId(), config.brokerUrl(), config.destinationName());
+                warehouseConfig.temperaturePort(), warehouseConfig.humidityPort(), warehouseConfig.warehouseId(), warehouseConfig.brokerUrl(), warehouseConfig.destinationName());
 
         tempListener.start();
         humListener.start();

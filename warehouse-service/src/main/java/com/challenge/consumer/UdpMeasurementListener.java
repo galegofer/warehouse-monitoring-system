@@ -33,22 +33,22 @@ public class UdpMeasurementListener implements AutoCloseable {
     public void start() {
         if (!running.compareAndSet(false, true)) return;
 
-        final var thread = new Thread(this::runLoop, "warehouse-udp-listener");
+        final var thread = new Thread(this::runLoop, "warehouse-udp-listener-" + sensorType.name().toLowerCase());
         thread.setDaemon(true);
         thread.start();
     }
 
     private void runLoop() {
-        try (final var s = new DatagramSocket(port)) {
-            socket = s;
+        try (final var localSocket = new DatagramSocket(port)) {
+            socket = localSocket;
 
             final var buf = new byte[2048];
             final var packet = new DatagramPacket(buf, buf.length);
 
-            logger.info("UDP listener bound. port={}", port);
+            logger.info("UDP listener bound for {} sensor at port {}", sensorType.name().toLowerCase(), port);
 
             while (running.get()) {
-                s.receive(packet);
+                localSocket.receive(packet);
 
                 final var payload = new String(packet.getData(), packet.getOffset(), packet.getLength(), StandardCharsets.UTF_8).trim();
                 if (payload.isBlank()) continue;
@@ -70,10 +70,10 @@ public class UdpMeasurementListener implements AutoCloseable {
     @Override
     public void close() {
         running.set(false);
-        final var s = socket;
-        if (s != null) {
+        final var localSocket = socket;
+        if (localSocket != null) {
             try {
-                s.close();
+                localSocket.close();
             } catch (final Exception ignored) {
             }
         }

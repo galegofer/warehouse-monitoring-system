@@ -3,6 +3,7 @@ package com.challenge.publisher;
 import com.challenge.domain.Measurement;
 import com.challenge.serialization.MeasurementJsonMapper;
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,14 +21,14 @@ public class JmsMeasurementPublisher implements AutoCloseable {
     private Session session;
     private MessageProducer producer;
 
-    public JmsMeasurementPublisher(final String brokerUrl, final String destinationName, final MeasurementJsonMapper mapper) {
+    public JmsMeasurementPublisher(@NotNull final String brokerUrl, @NotNull final String destinationName, @NotNull final MeasurementJsonMapper mapper) {
         this.brokerUrl = brokerUrl;
         this.destinationName = destinationName;
         this.mapper = mapper;
         connect();
     }
 
-    public synchronized void publish(final Measurement measurement) {
+    public synchronized void publish(@NotNull final Measurement measurement) {
         final var json = mapper.toJson(measurement);
 
         try {

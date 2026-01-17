@@ -16,6 +16,9 @@ RUN mvn -q -DskipTests package
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
+RUN useradd -r -u 10001 appuser
+USER appuser
+
 COPY --from=build /app/central-service/target/central-service-*.jar /app/central-service.jar
 
 ENV BROKER_URL=tcp://activemq:61616

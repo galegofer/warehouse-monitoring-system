@@ -21,7 +21,7 @@ public class MeasurementParser {
                 .orElseGet(() -> UUID.randomUUID().toString());
     }
 
-    public Optional<Measurement> parse(final String payload, final SensorType type) {
+    public Optional<Measurement> parse(@NotNull final String payload, @Nullable final SensorType type) {
         if (StringUtils.isBlank(payload) || type == null) return Optional.empty();
 
         final var kv = parseKeyValue(payload);
@@ -31,15 +31,14 @@ public class MeasurementParser {
 
         if (sensorId == null || valueRaw == null) return Optional.empty();
 
-        final int value;
         try {
-            value = Integer.parseInt(valueRaw);
+            final int value = Integer.parseInt(valueRaw);
+
+            final var timestamp = System.currentTimeMillis();
+            return Optional.of(new Measurement(defaultWarehouseId, sensorId, type, value, timestamp));
         } catch (final Exception ignored) {
             return Optional.empty();
         }
-
-        final var timestamp = System.currentTimeMillis();
-        return Optional.of(new Measurement(defaultWarehouseId, sensorId, type, value, timestamp));
     }
 
     private static Map<String, String> parseKeyValue(final @NotNull String payload) {

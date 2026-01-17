@@ -19,7 +19,7 @@ public class CentralApplication {
         final var brokerUrl = readEnv("BROKER_URL", "tcp://activemq:61616");
         final var destinationName = readEnv("DESTINATION_NAME", "measurements.queue");
 
-        final var consumer = new JmsMeasurementConsumer(brokerUrl, destinationName, alarmService, mapper);
+        @SuppressWarnings("resource") final var consumer = new JmsMeasurementConsumer(brokerUrl, destinationName, alarmService, mapper);
         consumer.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

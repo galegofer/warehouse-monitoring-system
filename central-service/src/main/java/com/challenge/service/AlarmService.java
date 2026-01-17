@@ -3,6 +3,7 @@ package com.challenge.service;
 import com.challenge.domain.Measurement;
 import com.challenge.domain.SensorType;
 import com.challenge.domain.ThresholdConfig;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,14 +19,14 @@ public class AlarmService {
         this.thresholdConfig = thresholdConfig;
     }
 
-    public void onMeasurement(Measurement measurement) {
+    public void onMeasurement(@NotNull final Measurement measurement) {
         evaluate(measurement)
                 .ifPresent(alarm ->
                         logger.warn("ALARM warehouse={} sensor={} type={} value={} threshold={} ts={}", alarm.warehouseId(), alarm.sensorId(), alarm.type(), alarm.value(), alarm.thresholdUsed(), alarm.timestamp())
                 );
     }
 
-    Optional<Alarm> evaluate(Measurement measurement) {
+    Optional<Alarm> evaluate(@NotNull final Measurement measurement) {
         switch (measurement.type()) {
             case TEMPERATURE -> {
                 return measurement.value() > thresholdConfig.temperature()

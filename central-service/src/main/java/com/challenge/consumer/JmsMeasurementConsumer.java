@@ -3,6 +3,7 @@ package com.challenge.consumer;
 import com.challenge.serialization.MeasurementJsonMapper;
 import com.challenge.service.AlarmService;
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,10 +27,10 @@ public class JmsMeasurementConsumer implements AutoCloseable {
     private MessageConsumer consumer;
 
     public JmsMeasurementConsumer(
-            final String brokerUrl,
-            final String destinationName,
-            final AlarmService alarmService,
-            final MeasurementJsonMapper jsonMapper
+            @NotNull final String brokerUrl,
+            @NotNull final String destinationName,
+            @NotNull final AlarmService alarmService,
+            @NotNull final MeasurementJsonMapper jsonMapper
     ) {
         this.brokerUrl = brokerUrl;
         this.destinationName = destinationName;
