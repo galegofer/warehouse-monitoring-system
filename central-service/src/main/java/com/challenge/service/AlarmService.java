@@ -1,12 +1,15 @@
 package com.challenge.service;
 
+import com.challenge.domain.Alarm;
 import com.challenge.domain.Measurement;
-import com.challenge.domain.SensorType;
 import com.challenge.domain.ThresholdConfig;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Optional;
 
 public class AlarmService {
@@ -14,6 +17,10 @@ public class AlarmService {
     private static final Logger logger = LoggerFactory.getLogger(AlarmService.class);
 
     private final ThresholdConfig thresholdConfig;
+    private final Cache<String, Boolean> messageDedup = Caffeine.newBuilder()
+            .maximumSize(50_000)
+            .expireAfterWrite(Duration.ofSeconds(15))
+            .build();
 
     public AlarmService(ThresholdConfig thresholdConfig) {
         this.thresholdConfig = thresholdConfig;
@@ -21,8 +28,16 @@ public class AlarmService {
 
     public void onMeasurement(@NotNull final Measurement measurement) {
         evaluate(measurement)
-                .ifPresent(alarm ->
-                        logger.warn("ALARM warehouse={} sensor={} type={} value={} threshold={} ts={}", alarm.warehouseId(), alarm.sensorId(), alarm.type(), alarm.value(), alarm.thresholdUsed(), alarm.timestamp())
+                .ifPresent(alarm -> {
+                            final var key = alarm.warehouseId() + "|" + alarm.sensorId() + "|" + alarm.type();
+
+                            if (messageDedup.asMap().putIfAbsent(key, Boolean.TRUE) != null) {
+                                logger.warn("Message with key {} already exists and will be ignored", key);
+                                return;
+                            }
+
+                            logger.warn("ALARM warehouse={} sensor={} type={} value={} threshold={} ts={}", alarm.warehouseId(), alarm.sensorId(), alarm.type(), alarm.value(), alarm.thresholdUsed(), alarm.timestamp());
+                        }
                 );
     }
 
@@ -44,8 +59,5 @@ public class AlarmService {
                 return Optional.empty();
             }
         }
-    }
-
-    record Alarm(String warehouseId, String sensorId, SensorType type, int value, int thresholdUsed, long timestamp) {
     }
 }

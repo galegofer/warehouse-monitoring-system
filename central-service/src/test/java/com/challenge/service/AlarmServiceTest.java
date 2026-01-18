@@ -1,5 +1,6 @@
 package com.challenge.service;
 
+import com.challenge.domain.Alarm;
 import com.challenge.domain.Measurement;
 import com.challenge.domain.SensorType;
 import com.challenge.domain.ThresholdConfig;
@@ -23,11 +24,9 @@ class AlarmServiceTest {
         assertThat(result)
                 .isPresent()
                 .get()
-                .satisfies(alarm -> {
-                    assertThat(alarm.type()).isEqualTo(SensorType.TEMPERATURE);
-                    assertThat(alarm.value()).isEqualTo(36);
-                    assertThat(alarm.thresholdUsed()).isEqualTo(35);
-                });
+                .returns(SensorType.TEMPERATURE, Alarm::type)
+                .returns(36, Alarm::value)
+                .returns(35, Alarm::thresholdUsed);
     }
 
     @Test
@@ -58,11 +57,9 @@ class AlarmServiceTest {
         assertThat(result)
                 .isPresent()
                 .get()
-                .satisfies(alarm -> {
-                    assertThat(alarm.type()).isEqualTo(SensorType.HUMIDITY);
-                    assertThat(alarm.value()).isEqualTo(51);
-                    assertThat(alarm.thresholdUsed()).isEqualTo(50);
-                });
+                .returns(SensorType.HUMIDITY, Alarm::type)
+                .returns(51, Alarm::value)
+                .returns(50, Alarm::thresholdUsed);
     }
 
     @Test

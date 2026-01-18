@@ -24,5 +24,4 @@ COPY --from=build /app/warehouse-service/target/warehouse-service-*.jar /app/war
 
 EXPOSE 3344/udp
 EXPOSE 3355/udp
-
-ENTRYPOINT ["java","-jar","/app/warehouse-service.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/warehouse-service.jar"]

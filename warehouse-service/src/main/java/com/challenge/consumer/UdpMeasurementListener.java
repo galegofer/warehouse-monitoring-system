@@ -60,7 +60,10 @@ public class UdpMeasurementListener implements AutoCloseable {
 
                 try {
                     parser.parse(payload, sensorType)
-                            .ifPresentOrElse(publisher::publish, () -> logger.warn("Measurement not found or malformed."));
+                            .ifPresentOrElse(measurement -> {
+                                logger.info("Received data for {} sensor at port {}", sensorType.name().toLowerCase(), port);
+                                publisher.publish(measurement);
+                            }, () -> logger.warn("Measurement not found or malformed."));
                 } catch (final Exception ex) {
                     logger.warn("Invalid UDP payload='{}' error={}", payload, ex.toString());
                 }

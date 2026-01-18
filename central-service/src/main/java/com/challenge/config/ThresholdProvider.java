@@ -2,6 +2,8 @@ package com.challenge.config;
 
 import com.challenge.domain.ThresholdConfig;
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +47,6 @@ public class ThresholdProvider {
                         envName,
                         defaultValue
                 );
-                return defaultValue;
             }
 
             return value;
@@ -61,7 +62,7 @@ public class ThresholdProvider {
         }
     }
 
-    private static String readRaw(final String propertyName, final String envName) {
+    private static @Nullable String readRaw(@NotNull final String propertyName, @NotNull final String envName) {
         final var raw = System.getProperty(propertyName);
 
         return StringUtils.isBlank(raw)

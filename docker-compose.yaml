@@ -21,6 +21,7 @@ services:
     environment:
       - BROKER_URL=tcp://activemq:61616
       - DESTINATION_NAME=measurements.queue
+      - JAVA_OPTS=-Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat=yyyy-MM-dd'T'HH:mm:ss.SSS -Dorg.slf4j.simpleLogger.showThreadName=true -Dorg.slf4j.simpleLogger.levelInBrackets=true
     depends_on:
       activemq:
         condition: service_healthy
@@ -35,9 +36,18 @@ services:
       - WAREHOUSE_ID=WH-1
       - UDP_TEMPERATURE_PORT=3344
       - UDP_HUMIDITY_PORT=3355
+      - JAVA_OPTS=-Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat=yyyy-MM-dd'T'HH:mm:ss.SSS -Dorg.slf4j.simpleLogger.showThreadName=true -Dorg.slf4j.simpleLogger.levelInBrackets=true
     ports:
       - "3344:3344/udp"
       - "3355:3355/udp"
     depends_on:
       activemq:
         condition: service_healthy
+
+  # Trick to be able to send UDP events to the wh services, it seems is not working straight from the test itself in TC.
+  udp-sender:
+    image: alpine:3.20
+    command: [ "sh", "-c", "sleep 3600" ]
+    depends_on:
+      warehouse-service:
+        condition: service_started

@@ -11,11 +11,16 @@ import org.slf4j.LoggerFactory;
 
 import javax.jms.*;
 import java.time.Duration;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class JmsMeasurementConsumer implements AutoCloseable {
 
     private static final int MAX_PAYLOAD_SIZE = 10 * 1024;
+    private static final Duration RECONNECT_DELAY = Duration.ofSeconds(2);
+
     private static final Logger logger = LoggerFactory.getLogger(JmsMeasurementConsumer.class);
 
     private final String brokerUrl;
@@ -24,11 +29,12 @@ public class JmsMeasurementConsumer implements AutoCloseable {
     private final MeasurementJsonMapper jsonMapper;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final ScheduledExecutorService scheduler =
+            Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "jms-reconnector"));
 
     private Connection connection;
     private Session session;
     private MessageConsumer consumer;
-    private Thread thread;
 
     public JmsMeasurementConsumer(
             @NotNull final String brokerUrl,
@@ -44,33 +50,26 @@ public class JmsMeasurementConsumer implements AutoCloseable {
 
     public void start() {
         if (!running.compareAndSet(false, true)) return;
-
-        thread = new Thread(this::runLoop, "central-jms-consumer");
-        thread.setDaemon(true);
-        thread.start();
+        connectWithRetry();
     }
 
-    private void runLoop() {
-        final var reconnectDelay = Duration.ofSeconds(2);
+    private void connectWithRetry() {
+        try {
+            connect();
+        } catch (final Exception ex) {
+            logger.warn("JMS connection failed, retrying in {}s: {}",
+                    RECONNECT_DELAY.toSeconds(), ex.toString());
 
-        while (running.get() && !Thread.currentThread().isInterrupted()) {
-            try {
-                connectAndListen();
-                waitUntilStopped();
-            } catch (final Exception ex) {
-                logger.warn("JMS consumer error, reconnecting: {}", ex.toString());
-                safeCloseResources();
-                sleep(reconnectDelay);
-            }
+            scheduleReconnect();
         }
-
-        safeCloseResources();
     }
 
-    private void connectAndListen() throws JMSException {
+    private void connect() throws JMSException {
         final var factory = new ActiveMQConnectionFactory(brokerUrl);
 
         connection = factory.createConnection();
+        connection.setExceptionListener(this::onJmsException);
+
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
         final var destination = session.createQueue(destinationName);
@@ -79,13 +78,32 @@ public class JmsMeasurementConsumer implements AutoCloseable {
 
         connection.start();
 
-        logger.info("Connected (listener mode) brokerUrl={} destination={}", brokerUrl, destinationName);
+        logger.info("Connected to JMS brokerUrl={} destination={}", brokerUrl, destinationName);
+    }
+
+    private void onJmsException(final JMSException ex) {
+        if (!running.get()) return;
+
+        logger.warn("JMS exception detected, reconnecting: {}", ex.toString());
+
+        safeCloseResources();
+        scheduleReconnect();
+    }
+
+    private void scheduleReconnect() {
+        if (!running.get()) return;
+
+        scheduler.schedule(
+                this::connectWithRetry,
+                RECONNECT_DELAY.toMillis(),
+                TimeUnit.MILLISECONDS
+        );
     }
 
     private void onMessage(final Message message) {
         if (!running.get()) return;
 
-        if (!(message instanceof TextMessage textMessage)) {
+        if (!(message instanceof final TextMessage textMessage)) {
             logger.warn("Ignoring non-text JMS message type={}", message.getClass().getName());
             return;
         }
@@ -106,10 +124,7 @@ public class JmsMeasurementConsumer implements AutoCloseable {
 
             processPayload(payload);
         } catch (final Exception ex) {
-            logger.warn(
-                    "Invalid message payload, ignoring. error={}",
-                    ex.toString()
-            );
+            logger.warn("Invalid message payload, ignoring. error={}", ex.toString());
         }
     }
 
@@ -126,8 +141,7 @@ public class JmsMeasurementConsumer implements AutoCloseable {
         } catch (final Exception ex) {
             logger.warn(
                     "Invalid message payload, ignoring. payload='{}' error={}",
-                    payload,
-                    ex.toString()
+                    payload, ex.toString()
             );
         }
     }
@@ -140,26 +154,20 @@ public class JmsMeasurementConsumer implements AutoCloseable {
                 && m.timestamp() > 0;
     }
 
-    private void waitUntilStopped() throws InterruptedException {
-        while (running.get() && !Thread.currentThread().isInterrupted()) {
-            Thread.sleep(1000);
-        }
-    }
-
-    private static void sleep(final Duration duration) {
-        try {
-            Thread.sleep(duration.toMillis());
-        } catch (final InterruptedException ex) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
     @Override
     public void close() {
         running.set(false);
-        if (thread != null) {
-            thread.interrupt();
+
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                logger.warn("Scheduler did not terminate in time, forcing shutdown");
+                scheduler.shutdownNow();
+            }
+        } catch (final InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            scheduler.shutdownNow();
         }
+
         safeCloseResources();
     }
 

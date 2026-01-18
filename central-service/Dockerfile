@@ -21,4 +21,4 @@ USER appuser
 
 COPY --from=build /app/central-service/target/central-service-*.jar /app/central-service.jar
 
-ENTRYPOINT ["java","-jar","/app/central-service.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/central-service.jar"]

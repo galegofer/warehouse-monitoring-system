@@ -18,6 +18,13 @@ Services started:
 - central-service (JMS consumer)
 - warehouse-service (UDP consumer, JMS producer)
 
+Project build:
+
+```
+mvn clean install
+```
+It will run unit tests and e2e with TestContainers
+
 Send test events
 
 TEMPERATURE (UDP 3344)
