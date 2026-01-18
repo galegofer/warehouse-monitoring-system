@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class UdpMeasurementListener implements AutoCloseable {
 
+    private static final int MAX_UDP_PAYLOAD = 512;
     private static final Logger logger = LoggerFactory.getLogger(UdpMeasurementListener.class);
 
     private final int port;
@@ -52,6 +53,10 @@ public class UdpMeasurementListener implements AutoCloseable {
 
                 final var payload = new String(packet.getData(), packet.getOffset(), packet.getLength(), StandardCharsets.UTF_8).trim();
                 if (payload.isBlank()) continue;
+                if (payload.length() > MAX_UDP_PAYLOAD) {
+                    logger.warn("Ignoring oversized UDP payload size={} max={}", payload.length(), MAX_UDP_PAYLOAD);
+                    continue;
+                }
 
                 try {
                     parser.parse(payload, sensorType)

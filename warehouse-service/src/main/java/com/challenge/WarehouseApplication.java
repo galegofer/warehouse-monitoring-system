@@ -40,6 +40,15 @@ public class WarehouseApplication {
             }
         }));
 
+        logger.info("""
+                       \s
+                       ,--.   ,--.                      ,--.                                       ,---.                          ,--.             \s
+                       |  |   |  | ,--,--.,--.--. ,---. |  ,---.  ,---. ,--.,--. ,---.  ,---.     '   .-'  ,---. ,--.--.,--.  ,--.`--' ,---. ,---. \s
+                       |  |.'.|  |' ,-.  ||  .--'| .-. :|  .-.  || .-. ||  ||  |(  .-' | .-. :    `.  `-. | .-. :|  .--' \\  `'  / ,--.| .--'| .-. :\s
+                       |   ,'.   |\\ '-'  ||  |   \\   --.|  | |  |' '-' ''  ''  '.-'  `)\\   --.    .-'    |\\   --.|  |     \\    /  |  |\\ `--.\\   --.\s
+                       '--'   '--' `--`--'`--'    `----'`--' `--' `---'  `----' `----'  `----'    `-----'  `----'`--'      `--'   `--' `---' `----'\s
+                \s""");
+
         logger.info("warehouse-service started. temperatureUdpPort={} humidityUdpPort={} warehouseId={} brokerUrl={} destination={}",
                 warehouseConfig.temperaturePort(), warehouseConfig.humidityPort(), warehouseConfig.warehouseId(), warehouseConfig.brokerUrl(), warehouseConfig.destinationName());
 

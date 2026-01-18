@@ -21,7 +21,4 @@ USER appuser
 
 COPY --from=build /app/central-service/target/central-service-*.jar /app/central-service.jar
 
-ENV BROKER_URL=tcp://activemq:61616
-ENV DESTINATION_NAME=measurements.queue
-
 ENTRYPOINT ["java","-jar","/app/central-service.jar"]

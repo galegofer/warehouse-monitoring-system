@@ -5,16 +5,24 @@ import com.challenge.domain.SensorType;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class MeasurementParser {
 
     private final String defaultWarehouseId;
+
+    private static final Logger logger = LoggerFactory.getLogger(MeasurementParser.class);
+    private static final Pattern MEASUREMENT_PATTERN = Pattern.compile(
+            "^\\s*sensor_id\\s*=\\s*([a-zA-Z0-9]+)\\s*;\\s*value\\s*=\\s*(\\d+)\\s*$"
+    );
 
     public MeasurementParser(@Nullable final String defaultWarehouseId) {
         this.defaultWarehouseId = Optional.ofNullable(defaultWarehouseId)
@@ -23,6 +31,13 @@ public class MeasurementParser {
 
     public Optional<Measurement> parse(@NotNull final String payload, @Nullable final SensorType type) {
         if (StringUtils.isBlank(payload) || type == null) return Optional.empty();
+
+        if(!MEASUREMENT_PATTERN.matcher(payload).matches()) {
+            logger.warn(
+                    "Received payload '{}' does not match expected format (sensor_id=<alphanumeric>; value=<integer>), attempting tolerant parsing",
+                    payload
+            );
+        }
 
         final var kv = parseKeyValue(payload);
 

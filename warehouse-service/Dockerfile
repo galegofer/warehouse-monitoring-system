@@ -22,12 +22,6 @@ USER appuser
 
 COPY --from=build /app/warehouse-service/target/warehouse-service-*.jar /app/warehouse-service.jar
 
-ENV BROKER_URL=tcp://activemq:61616
-ENV DESTINATION_NAME=measurements.queue
-ENV WAREHOUSE_ID=WH-1
-ENV UDP_TEMPERATURE_PORT=3344
-ENV UDP_HUMIDITY_PORT=3355
-
 EXPOSE 3344/udp
 EXPOSE 3355/udp
 

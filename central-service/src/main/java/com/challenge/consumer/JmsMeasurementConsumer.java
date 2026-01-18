@@ -1,8 +1,10 @@
 package com.challenge.consumer;
 
+import com.challenge.domain.Measurement;
 import com.challenge.serialization.MeasurementJsonMapper;
 import com.challenge.service.AlarmService;
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class JmsMeasurementConsumer implements AutoCloseable {
 
+    private static final int MAX_PAYLOAD_SIZE = 10 * 1024;
     private static final Logger logger = LoggerFactory.getLogger(JmsMeasurementConsumer.class);
 
     private final String brokerUrl;
@@ -25,6 +28,7 @@ public class JmsMeasurementConsumer implements AutoCloseable {
     private Connection connection;
     private Session session;
     private MessageConsumer consumer;
+    private Thread thread;
 
     public JmsMeasurementConsumer(
             @NotNull final String brokerUrl,
@@ -41,8 +45,7 @@ public class JmsMeasurementConsumer implements AutoCloseable {
     public void start() {
         if (!running.compareAndSet(false, true)) return;
 
-        logger.info("Starting consumer...");
-        final var thread = new Thread(this::runLoop, "central-jms-consumer");
+        thread = new Thread(this::runLoop, "central-jms-consumer");
         thread.setDaemon(true);
         thread.start();
     }
@@ -50,12 +53,12 @@ public class JmsMeasurementConsumer implements AutoCloseable {
     private void runLoop() {
         final var reconnectDelay = Duration.ofSeconds(2);
 
-        while (running.get()) {
+        while (running.get() && !Thread.currentThread().isInterrupted()) {
             try {
-                connect();
-                consumeLoop();
+                connectAndListen();
+                waitUntilStopped();
             } catch (final Exception ex) {
-                logger.warn("JMS consumer error, will reconnect: {}", ex.toString());
+                logger.warn("JMS consumer error, reconnecting: {}", ex.toString());
                 safeCloseResources();
                 sleep(reconnectDelay);
             }
@@ -64,49 +67,89 @@ public class JmsMeasurementConsumer implements AutoCloseable {
         safeCloseResources();
     }
 
-    private void connect() throws JMSException {
+    private void connectAndListen() throws JMSException {
         final var factory = new ActiveMQConnectionFactory(brokerUrl);
 
         connection = factory.createConnection();
+        session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+
+        final var destination = session.createQueue(destinationName);
+        consumer = session.createConsumer(destination);
+        consumer.setMessageListener(this::onMessage);
+
         connection.start();
 
-        session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        final var destination = session.createQueue(destinationName);
-
-        consumer = session.createConsumer(destination);
-
-        logger.info("Connected to brokerUrl={} destination={}", brokerUrl, destinationName);
+        logger.info("Connected (listener mode) brokerUrl={} destination={}", brokerUrl, destinationName);
     }
 
-    private void consumeLoop() throws JMSException {
-        while (running.get()) {
-            final var message = consumer.receive(1000);
+    private void onMessage(final Message message) {
+        if (!running.get()) return;
 
-            if (message == null) {
-                continue;
-            }
+        if (!(message instanceof TextMessage textMessage)) {
+            logger.warn("Ignoring non-text JMS message type={}", message.getClass().getName());
+            return;
+        }
 
-            if (!(message instanceof TextMessage textMessage)) {
-                logger.warn("Ignoring non-text JMS message type={}", message.getClass().getName());
-                continue;
-            }
-
+        try {
             final var payload = textMessage.getText();
 
-            try {
-                final var measurement = jsonMapper.fromJson(payload);
-                alarmService.onMeasurement(measurement);
-            } catch (final Exception ex) {
-                logger.warn("Invalid message payload, ignoring. payload='{}' error={}", payload, ex.toString());
+            if (StringUtils.isBlank(payload)) {
+                logger.warn("Ignoring empty JMS message");
+                return;
             }
+
+            if (payload.length() > MAX_PAYLOAD_SIZE) {
+                logger.warn("Ignoring oversized JMS message size={} max={}",
+                        payload.length(), MAX_PAYLOAD_SIZE);
+                return;
+            }
+
+            processPayload(payload);
+        } catch (final Exception ex) {
+            logger.warn(
+                    "Invalid message payload, ignoring. error={}",
+                    ex.toString()
+            );
+        }
+    }
+
+    private void processPayload(final String payload) {
+        try {
+            final var measurement = jsonMapper.fromJson(payload);
+
+            if (!isValid(measurement)) {
+                logger.warn("Ignoring invalid Measurement payload={}", payload);
+                return;
+            }
+
+            alarmService.onMeasurement(measurement);
+        } catch (final Exception ex) {
+            logger.warn(
+                    "Invalid message payload, ignoring. payload='{}' error={}",
+                    payload,
+                    ex.toString()
+            );
+        }
+    }
+
+    private static boolean isValid(final Measurement m) {
+        return m != null
+                && m.sensorId() != null
+                && !m.sensorId().isBlank()
+                && m.type() != null
+                && m.timestamp() > 0;
+    }
+
+    private void waitUntilStopped() throws InterruptedException {
+        while (running.get() && !Thread.currentThread().isInterrupted()) {
+            Thread.sleep(1000);
         }
     }
 
     private static void sleep(final Duration duration) {
         try {
             Thread.sleep(duration.toMillis());
-        } catch (final InterruptedException ignored) {
-            logger.debug("Interrupted while waiting for messages to be consumed");
+        } catch (final InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
     }
@@ -114,6 +157,9 @@ public class JmsMeasurementConsumer implements AutoCloseable {
     @Override
     public void close() {
         running.set(false);
+        if (thread != null) {
+            thread.interrupt();
+        }
         safeCloseResources();
     }
 
