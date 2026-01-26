@@ -35,7 +35,7 @@
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.4</maven.surefire.plugin.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
-        <assertj-core.version>3.27.6</assertj-core.version>
+        <assertj-core.version>3.27.7</assertj-core.version>
         <annotations.version>23.0.0</annotations.version>
     </properties>
 
